@@ -76,4 +76,6 @@
     }
   }
   if (!customElements.get('nachfolge-reise')) customElements.define('nachfolge-reise', NachfolgeReise);
+  // Der Wix-Editor speichert den Tag-Namen nicht zuverlässig – deshalb auch unter dem Standard-Tag registrieren
+  if (!customElements.get('wix-default-custom-element')) customElements.define('wix-default-custom-element', class extends NachfolgeReise {});
 })();
