@@ -31,8 +31,10 @@
     connectedCallback() {
       if (this._f) return;
       this.style.display = 'block';
-      this.style.width = '100%';
-      if (!this.style.height) this.style.height = '1000px';
+      // Wix gibt Breite/Höhe aus dem Editor als CSS-Variablen vor
+      this.style.width = 'var(--custom-element-width, 100%)';
+      this.style.maxWidth = '100%';
+      if (!this.style.height) this.style.height = 'var(--custom-element-height, 1000px)';
       var f = document.createElement('iframe');
       f.src = SPIEL + '/?wix=1';
       f.title = 'Die Nachfolge-Reise';
