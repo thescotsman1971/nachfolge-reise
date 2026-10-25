@@ -19,6 +19,7 @@
 }
 *{box-sizing:border-box}
 html,body{height:100%}
+html.eingebettet,html.eingebettet body{height:auto;overflow:hidden}
 body{margin:0;background:var(--nacht);color:var(--tinte);font-family:var(--text);font-size:16px;line-height:1.45}
 button,select,input{font:inherit;color:inherit}
 button{cursor:pointer}
@@ -836,7 +837,32 @@ async function pdfLaden(i, btn){
 }
 
 /* ---------- Anbindung an nachfolgetalk.de (Wix) ---------- */
-const WIX = { eingebettet: window.parent !== window, mitglied: null };
+const WIX = { eingebettet: window.parent !== window, mitglied: null, hoehe: 0, schritt: null };
+if(WIX.eingebettet) document.documentElement.classList.add('eingebettet');
+// Höhe an die Wix-Seite melden, damit das Element mitwächst (kein Scrollen im Spiel)
+function wixHoeheMelden(){
+  if(!WIX.eingebettet) return;
+  const app = document.getElementById('app'); if(!app) return;
+  const h = Math.ceil(app.getBoundingClientRect().height + 8);
+  if(Math.abs(h - WIX.hoehe) > 2){ WIX.hoehe = h; wixSenden({ typ:'hoehe', h }); }
+}
+if(WIX.eingebettet){
+  const beobachten = () => { const app = document.getElementById('app'); if(app && window.ResizeObserver) new ResizeObserver(() => requestAnimationFrame(wixHoeheMelden)).observe(app); wixHoeheMelden(); };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', beobachten); else setTimeout(beobachten, 0);
+  window.addEventListener('load', wixHoeheMelden);
+}
+// Bei jedem neuen Spielschritt die Seite zum Spielzug führen
+function wixSchrittMelden(){
+  if(!WIX.eingebettet || !S) return;
+  const k = S.phase + '|' + (S.schritt || '') + '|' + (S.aktiv ?? '');
+  if(WIX.schritt === null){ WIX.schritt = k; return; }
+  if(k === WIX.schritt) return;
+  const phasenwechsel = WIX.schritt.split('|')[0] !== S.phase;
+  WIX.schritt = k;
+  const zug = document.querySelector('section.zug');
+  const y = (!phasenwechsel && zug) ? Math.max(0, Math.round(zug.getBoundingClientRect().top + window.scrollY)) : 0;
+  setTimeout(() => wixSenden({ typ:'oben', y }), 30);
+}
 function wixSenden(m){ if(WIX.eingebettet){ try{ window.parent.postMessage(Object.assign({ quelle:'reise' }, m), '*'); }catch(e){} } }
 function wixUebernehmen(){
   const d = WIX.mitglied;
@@ -872,6 +898,7 @@ function render(){
   if(S.phase === 'setup') app.innerHTML = setupAnsicht();
   else if(S.phase === 'spiel'){ app.innerHTML = spielAnsicht(); if(WELT.modus === '3d') weltEinhaengen(); }
   else { app.innerHTML = endeAnsicht(); wixAbschlussMelden(); }
+  wixSchrittMelden(); requestAnimationFrame(wixHoeheMelden);
 }
 function kopf(rechts){
   return `<header class="kopf"><h1 class="marke">Die Nachfolge-<span>Reise</span></h1><span class="unterzeile">Ein Nachfolgespiel von NachfolgeTalk</span><span class="raum"></span>${rechts||''}</header>`;
