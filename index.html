@@ -834,11 +834,44 @@ async function pdfLaden(i, btn){
   }catch(e){ if(status) status.textContent = 'Das PDF konnte nicht erstellt werden: ' + ((e && e.message) || e); }
   btn.disabled = false; btn.textContent = alt;
 }
+
+/* ---------- Anbindung an nachfolgetalk.de (Wix) ---------- */
+const WIX = { eingebettet: window.parent !== window, mitglied: null };
+function wixSenden(m){ if(WIX.eingebettet){ try{ window.parent.postMessage(Object.assign({ quelle:'reise' }, m), '*'); }catch(e){} } }
+function wixUebernehmen(){
+  const d = WIX.mitglied;
+  if(!d || !S || S.phase !== 'setup' || S.setup.wixUebernommen) return;
+  const t = S.setup.teams[0];
+  if(!t.name && (d.vorname || d.nachname)) t.name = [d.vorname, d.nachname].filter(Boolean).join(' ');
+  if(Array.isArray(d.werte)){ d.werte.forEach((w, j) => { if(typeof w === 'number') t.werte[j] = Math.max(1, Math.min(5, w)); }); }
+  S.setup.wixUebernommen = true;
+  S.setup.checkInfo = Array.isArray(d.werte) ? { datum: d.datum, offen: d.werte.filter(w => w === null).length, laufend: d.status === 'laufend' } : null;
+  sichern(); render();
+}
+window.addEventListener('message', e => {
+  const m = e.data || {};
+  if(e.source !== window.parent || m.quelle !== 'reise-wix') return;
+  if(m.typ === 'mitglied'){ WIX.mitglied = m.daten || null; wixUebernehmen(); }
+});
+function checkHinweisHtml(){
+  const c = S.setup.checkInfo; if(!c) return '';
+  const datum = c.datum ? new Date(c.datum).toLocaleDateString('de-DE') : '';
+  return `<div class="startfrage" style="margin:10px 0 4px"><small>Aus Ihrem NachfolgeCheck</small>Ihre Werte${datum ? ' vom ' + esc(datum) : ''} sind übernommen${c.laufend ? ' (Check noch nicht abgeschlossen)' : ''}${c.offen ? ' – ' + c.offen + ' Dimension' + (c.offen > 1 ? 'en sind' : ' ist') + ' noch offen und steh' + (c.offen > 1 ? 'en' : 't') + ' auf 3' : ''}. Sie können sie hier anpassen.</div>`;
+}
+function wixAbschlussMelden(){
+  if(!WIX.eingebettet || !S || S.phase !== 'ende' || S.gemeldet) return;
+  const t = S.teams[0];
+  S.gemeldet = true; sichern();
+  wixSenden({ typ:'abgeschlossen', daten:{ qualitaet:index(t), punkte:t.punkte, maxPunkte:t.maxPunkte, monate:monat(t), notfall:!!t.notfall,
+    dauer:dauerCfg().name, weg:t.weg || '', fertig:!!t.fertig,
+    hausaufgaben:t.werte.map((v,i)=>({v,i})).sort((a,b)=>a.v-b.v).slice(0,3).map(h => DIM[h.i].name) } });
+}
 function render(){
+  if(S.phase === 'setup' && WIX.mitglied && !S.setup.wixUebernommen){ wixUebernehmen(); return; }
   const app = document.getElementById('app');
   if(S.phase === 'setup') app.innerHTML = setupAnsicht();
   else if(S.phase === 'spiel'){ app.innerHTML = spielAnsicht(); if(WELT.modus === '3d') weltEinhaengen(); }
-  else app.innerHTML = endeAnsicht();
+  else { app.innerHTML = endeAnsicht(); wixAbschlussMelden(); }
 }
 function kopf(rechts){
   return `<header class="kopf"><h1 class="marke">Die Nachfolge-<span>Reise</span></h1><span class="unterzeile">Ein Nachfolgespiel von NachfolgeTalk</span><span class="raum"></span>${rechts||''}</header>`;
@@ -861,7 +894,7 @@ function teamFormular(t, i){
     <textarea class="frage" id="fr${i}" placeholder="Zum Beispiel: Wie sage ich es meinen Mitarbeitern?" oninput="S.setup.teams[${i}].frage=this.value;sichern()">${esc(t.frage)}</textarea>
     <div class="beispiele">${B.startfragenBeispiele.map(b => `<button type="button" onclick="S.setup.teams[${i}].frage=${esc(JSON.stringify(b))};sichern();render()">${esc(b)}</button>`).join('')}</div>
     ${fehler ? `<div class="fehler">Bitte tragen Sie zuerst Ihre Frage an die Reise ein.</div>` : ''}
-    <div class="schritt">${i===0?'3 · ':''}Wo stehen Sie heute?</div>
+    <div class="schritt">${i===0?'3 · ':''}Wo stehen Sie heute?</div>${i===0 ? checkHinweisHtml() : ''}
     <p style="margin:0 0 6px;color:var(--tinte2)">Schätzen Sie sich in den 8 Dimensionen des NachfolgeChecks ein – oder übernehmen Sie Ihre Ampel: rot = 1–2, gelb = 3, grün = 4–5.</p>
     ${DIM.map((d,j) => `<div class="bewertung"><span class="dn">${d.nr} · ${esc(d.name)}</span><span class="dq">${esc(B.hilfefragen[j])}</span>${skala(i,j,t.werte[j])}</div>`).join('')}`;
 }
@@ -1114,6 +1147,7 @@ function endeAnsicht(){
 function boot(data){
   S = (data && data.phase) ? data : (laden() || neuesSetup());
   render();
+  wixSenden({ typ:'bereit' });
 }
 window.claude?.hot?.snapshot?.(() => S);
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
