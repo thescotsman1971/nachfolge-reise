@@ -1,0 +1,6 @@
+Die Nachfolge-Reise – ein Nachfolgespiel von NachfolgeTalk (Wolfgang Bürger). Alle Rechte an Inhalten und Texten vorbehalten.
+
+Verwendete Komponenten:
+- Alegreya und Alegreya Sans (Juan Pablo del Peral, Huerta Tipográfica), SIL Open Font License 1.1 – https://openfontlicense.org
+- three.js r128 (three.js authors), MIT License – https://github.com/mrdoob/three.js
+- jsPDF 2.5.1 (James Hall, yWorks GmbH u. a.), MIT License – https://github.com/parallax/jsPDF
