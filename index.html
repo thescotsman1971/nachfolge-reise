@@ -851,7 +851,7 @@ function wixUebernehmen(){
 window.addEventListener('message', e => {
   const m = e.data || {};
   if(e.source !== window.parent || m.quelle !== 'reise-wix') return;
-  if(m.typ === 'mitglied'){ WIX.mitglied = m.daten || null; wixUebernehmen(); }
+  if(m.typ === 'mitglied'){ WIX.antwort = true; WIX.mitglied = m.daten || null; wixUebernehmen(); }
 });
 function checkHinweisHtml(){
   const c = S.setup.checkInfo; if(!c) return '';
@@ -1148,6 +1148,8 @@ function boot(data){
   S = (data && data.phase) ? data : (laden() || neuesSetup());
   render();
   wixSenden({ typ:'bereit' });
+  // Falls die Wix-Seite noch nicht zuhört: nach 2 s und 5 s erneut melden
+  [2000, 5000].forEach(ms => setTimeout(() => { if(!WIX.antwort) wixSenden({ typ:'bereit' }); }, ms));
 }
 window.claude?.hot?.snapshot?.(() => S);
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
